@@ -1,0 +1,31 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  @apply bg-white text-ink font-body antialiased;
+}
+
+h1,
+h2,
+h3 {
+  font-family: "Space Grotesk", sans-serif;
+}
+
+/* Hide scrollbar on the category chip row but keep it scrollable */
+.chip-row::-webkit-scrollbar {
+  display: none;
+}
+.chip-row {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+:focus-visible {
+  outline: 2px solid #1b2a4a;
+  outline-offset: 2px;
+}
