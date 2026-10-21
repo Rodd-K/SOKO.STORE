@@ -61,6 +61,12 @@ export default function Login() {
 
         {error && <p className="text-sm text-sale">{error}</p>}
 
+        <div className="text-right text-sm">
+          <Link to="/forgot-password" className="text-marigold-600 hover:underline">
+            Forgot password?
+          </Link>
+        </div>
+
         <button
           type="submit"
           disabled={submitting}

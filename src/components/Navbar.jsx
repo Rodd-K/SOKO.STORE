@@ -7,10 +7,15 @@ import { useCatalog } from "../context/CatalogContext";
 
 export default function Navbar() {
   const { itemCount } = useCart();
-  const { user } = useAuth();
+  const { user, signOut } = useAuth();
   const { categories } = useCatalog();
   const navigate = useNavigate();
   const [query, setQuery] = useState("");
+
+  async function handleLogout() {
+    await signOut();
+    navigate("/");
+  }
 
   function handleSearch(e) {
     e.preventDefault();
@@ -49,6 +54,14 @@ export default function Navbar() {
               <UserIcon className="h-5 w-5" />
               <span className="hidden sm:inline">{user ? "Account" : "Log in"}</span>
             </Link>
+            {user && (
+              <button
+                onClick={handleLogout}
+                className="flex items-center gap-1.5 text-sm hover:text-marigold-400"
+              >
+                Log out
+              </button>
+            )}
             <Link to="/cart" className="relative flex items-center gap-1.5 text-sm hover:text-marigold-400">
               <CartIcon className="h-5 w-5" />
               <span className="hidden sm:inline">Cart</span>

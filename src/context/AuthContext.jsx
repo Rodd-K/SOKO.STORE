@@ -32,12 +32,22 @@ export function AuthProvider({ children }) {
     });
   }
 
+  function resetPassword(email) {
+    return supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: `${window.location.origin}/reset-password`,
+    });
+  }
+
+  function updatePassword(password) {
+    return supabase.auth.updateUser({ password });
+  }
+
   function signOut() {
     return supabase.auth.signOut();
   }
 
   return (
-    <AuthContext.Provider value={{ user, loading, signIn, signUp, signOut }}>
+    <AuthContext.Provider value={{ user, loading, signIn, signUp, signOut, resetPassword, updatePassword }}>
       {children}
     </AuthContext.Provider>
   );
