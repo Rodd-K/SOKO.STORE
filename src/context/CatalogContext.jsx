@@ -32,7 +32,7 @@ export function CatalogProvider({ children }) {
       return;
     }
     const [prod, cat] = await Promise.all([
-      supabase.from("products").select("*").order("id", { ascending: false }),
+      supabase.from("products").select("*").eq("is_active", true).order("id", { ascending: false }),
       supabase.from("categories").select("*").order("name"),
     ]);
     if (prod.error || cat.error) {

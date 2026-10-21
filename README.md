@@ -12,6 +12,11 @@ React + Vite + Tailwind + React Router storefront, backed by **Supabase**
 3. **Authentication → URL Configuration:** set the Site URL to your Netlify URL
    and add it (plus `http://localhost:5173`) to the Redirect URLs.
 
+### Admin portal (patch 2)
+
+Run `soko_patch_2_admin.sql` once, then make yourself admin with the SQL at the
+bottom of that file. Admins see an **Admin** link in the navbar and can open `/admin`.
+
 ## 2. Environment variables
 
 Copy `.env.example` to `.env` and fill in:

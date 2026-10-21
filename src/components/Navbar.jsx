@@ -7,7 +7,7 @@ import { useCatalog } from "../context/CatalogContext";
 
 export default function Navbar() {
   const { itemCount } = useCart();
-  const { user, signOut } = useAuth();
+  const { user, isAdmin, signOut } = useAuth();
   const { categories } = useCatalog();
   const navigate = useNavigate();
   const [query, setQuery] = useState("");
@@ -63,6 +63,11 @@ export default function Navbar() {
               >
                 <UserIcon className="h-4 w-4" />
                 <span>Log in</span>
+              </Link>
+            )}
+            {isAdmin && (
+              <Link to="/admin" className="text-sm font-semibold text-marigold-400 hover:text-marigold-500">
+                Admin
               </Link>
             )}
             {user && (
