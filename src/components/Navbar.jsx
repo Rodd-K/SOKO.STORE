@@ -46,14 +46,25 @@ export default function Navbar() {
 
           <nav className="ml-auto flex items-center gap-5">
             {/* Visible on mobile too: icon only on small screens */}
-            <Link
-              to={user ? "/profile" : "/login"}
-              className="flex items-center gap-1.5 text-sm hover:text-marigold-400"
-              aria-label={user ? "Account" : "Log in"}
-            >
-              <UserIcon className="h-5 w-5" />
-              <span className="hidden sm:inline">{user ? "Account" : "Log in"}</span>
-            </Link>
+            {user ? (
+              <Link
+                to="/profile"
+                className="flex items-center gap-1.5 text-sm hover:text-marigold-400"
+                aria-label="Account"
+              >
+                <UserIcon className="h-5 w-5" />
+                <span className="hidden sm:inline">Account</span>
+              </Link>
+            ) : (
+              <Link
+                to="/login"
+                className="flex items-center gap-1.5 rounded-md bg-marigold-500 px-3 py-1.5 text-sm font-semibold text-navy-900 hover:bg-marigold-400"
+                aria-label="Log in"
+              >
+                <UserIcon className="h-4 w-4" />
+                <span>Log in</span>
+              </Link>
+            )}
             {user && (
               <button
                 onClick={handleLogout}
