@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, Navigate, useNavigate } from "react-router-dom";
 import AuthCard from "../components/AuthCard";
 import { useAuth } from "../context/AuthContext";
 import { isValidKenyanPhone } from "../lib/format";
@@ -14,11 +14,15 @@ const EMPTY_FORM = {
 
 export default function Register() {
   const navigate = useNavigate();
-  const { signUp } = useAuth();
+  const { user, loading, signUp } = useAuth();
   const [form, setForm] = useState(EMPTY_FORM);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [submitting, setSubmitting] = useState(false);
+
+  if (!loading && user) {
+    return <Navigate to="/" replace />;
+  }
 
   function handleChange(e) {
     setForm((prev) => ({ ...prev, [e.target.name]: e.target.value }));
@@ -58,7 +62,7 @@ export default function Register() {
       return;
     }
     if (data.session) {
-      navigate("/profile"); // email confirmation is off, so the user is already signed in
+      navigate("/"); // email confirmation is off, so the user is already signed in
     } else {
       setNotice("Account created. Check your email to confirm it, then log in.");
     }

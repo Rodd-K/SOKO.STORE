@@ -1,18 +1,22 @@
 import { useState } from "react";
-import { Link, useLocation, useNavigate } from "react-router-dom";
+import { Link, Navigate, useLocation, useNavigate } from "react-router-dom";
 import AuthCard from "../components/AuthCard";
 import { useAuth } from "../context/AuthContext";
 
 export default function Login() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { signIn } = useAuth();
+  const { user, loading, signIn } = useAuth();
   const [form, setForm] = useState({ email: "", password: "" });
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
   // If the user was sent here from a protected page, go back there after login.
-  const redirectTo = location.state?.from?.pathname || "/profile";
+  const redirectTo = location.state?.from?.pathname || "/";
+
+  if (!loading && user) {
+    return <Navigate to={redirectTo} replace />;
+  }
 
   function handleChange(e) {
     setForm((prev) => ({ ...prev, [e.target.name]: e.target.value }));
