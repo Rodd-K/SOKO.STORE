@@ -1,10 +1,8 @@
 import { Link } from "react-router-dom";
 import { useCart } from "../context/CartContext";
 import { TrashIcon } from "../components/Icons";
+import { formatKsh } from "../lib/format";
 
-function formatKsh(amount) {
-  return `KSh ${amount.toLocaleString("en-KE")}`;
-}
 
 export default function Cart() {
   const { items, updateQuantity, removeFromCart, subtotal, delivery, total } = useCart();

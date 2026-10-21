@@ -2,10 +2,13 @@ import { Link, useNavigate } from "react-router-dom";
 import { useState } from "react";
 import { CartIcon, SearchIcon, UserIcon } from "./Icons";
 import { useCart } from "../context/CartContext";
-import categories from "../data/categories";
+import { useAuth } from "../context/AuthContext";
+import { useCatalog } from "../context/CatalogContext";
 
 export default function Navbar() {
   const { itemCount } = useCart();
+  const { user } = useAuth();
+  const { categories } = useCatalog();
   const navigate = useNavigate();
   const [query, setQuery] = useState("");
 
@@ -37,12 +40,14 @@ export default function Navbar() {
           </form>
 
           <nav className="ml-auto flex items-center gap-5">
+            {/* Visible on mobile too: icon only on small screens */}
             <Link
-              to="/profile"
-              className="hidden items-center gap-1.5 text-sm hover:text-marigold-400 sm:flex"
+              to={user ? "/profile" : "/login"}
+              className="flex items-center gap-1.5 text-sm hover:text-marigold-400"
+              aria-label={user ? "Account" : "Log in"}
             >
               <UserIcon className="h-5 w-5" />
-              Account
+              <span className="hidden sm:inline">{user ? "Account" : "Log in"}</span>
             </Link>
             <Link to="/cart" className="relative flex items-center gap-1.5 text-sm hover:text-marigold-400">
               <CartIcon className="h-5 w-5" />

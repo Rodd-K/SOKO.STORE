@@ -1,11 +1,11 @@
 import { Link } from "react-router-dom";
-import products from "../data/products";
-import categories from "../data/categories";
+import { useCatalog } from "../context/CatalogContext";
 import ProductCard from "../components/ProductCard";
 
 export default function Home() {
+  const { products, categories, loading } = useCatalog();
   const featured = products.filter((p) => p.originalPrice).slice(0, 4);
-  const latest = [...products].reverse().slice(0, 8);
+  const latest = products.slice(0, 8); // catalog is already newest-first
 
   return (
     <div>
@@ -78,6 +78,7 @@ export default function Home() {
               View all
             </Link>
           </div>
+          {loading && <p className="text-sm text-ink/60">Loading products…</p>}
           <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
             {featured.map((p) => (
               <ProductCard key={p.id} product={p} />

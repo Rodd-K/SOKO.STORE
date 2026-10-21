@@ -1,7 +1,6 @@
 import { useMemo } from "react";
 import { useSearchParams } from "react-router-dom";
-import products from "../data/products";
-import categories from "../data/categories";
+import { useCatalog } from "../context/CatalogContext";
 import ProductCard from "../components/ProductCard";
 
 const SORT_OPTIONS = [
@@ -11,6 +10,7 @@ const SORT_OPTIONS = [
 ];
 
 export default function Products() {
+  const { products, categories, loading } = useCatalog();
   const [searchParams, setSearchParams] = useSearchParams();
 
   const activeCategory = searchParams.get("category") || "";
@@ -51,7 +51,7 @@ export default function Products() {
     }
 
     return result;
-  }, [activeCategory, query, sort, maxPrice]);
+  }, [products, activeCategory, query, sort, maxPrice]);
 
   const activeCategoryName = categories.find((c) => c.slug === activeCategory)?.name;
 
@@ -121,7 +121,9 @@ export default function Products() {
             </select>
           </div>
 
-          {filtered.length === 0 ? (
+          {loading ? (
+            <p className="py-16 text-center text-sm text-ink/60">Loading products…</p>
+          ) : filtered.length === 0 ? (
             <div className="rounded-lg border border-dashed border-navy-100 py-16 text-center">
               <p className="font-semibold text-navy-900">No products match those filters.</p>
               <p className="mt-1 text-sm text-ink/60">Try clearing a filter or searching a different term.</p>

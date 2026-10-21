@@ -1,103 +1,77 @@
 # Soko — Frontend
 
-React + Vite + Tailwind + React Router storefront for the e-commerce teaching
-project. All pages run on mock data for now — no backend required yet.
+React + Vite + Tailwind + React Router storefront, backed by **Supabase**
+(Postgres, Auth and Row Level Security). No separate server is needed.
 
----
+## 1. Set up Supabase
 
-## Deploy to Netlify (fastest path)
+1. In the Supabase dashboard open **SQL Editor** and run `soko_schema.sql`
+   (a fresh project) or `soko_patch_1.sql` (if you already ran the first schema).
+2. **Authentication → Providers:** keep Email enabled. For testing, turn off
+   "Confirm email" so new accounts can log in immediately.
+3. **Authentication → URL Configuration:** set the Site URL to your Netlify URL
+   and add it (plus `http://localhost:5173`) to the Redirect URLs.
 
-You have two options. **Option A is fastest if you're on a deadline** — no
-GitHub required.
+## 2. Environment variables
 
-### Option A — Drag and drop
+Copy `.env.example` to `.env` and fill in:
 
-1. Build the site locally:
-   ```bash
-   npm install
-   npm run build
-   ```
-   This creates a `dist/` folder — that's the entire deployable site.
-2. Go to [app.netlify.com/drop](https://app.netlify.com/drop).
-3. Drag the `dist` folder onto the page.
-4. Netlify gives you a live URL in under a minute.
+```
+VITE_SUPABASE_URL=https://<your-project-id>.supabase.co
+VITE_SUPABASE_ANON_KEY=<anon public key>
+```
 
-The `_redirects` file is already inside `dist/` after the build, so routing
-(`/products`, `/cart`, etc.) will work correctly on refresh — this step
-matters, don't skip the build.
+The anon key is in **Project Settings → API**. It is safe in the browser because
+Row Level Security protects the data. Never put the `service_role` key in the frontend.
 
-### Option B — Connect to GitHub (better for ongoing work with the student)
+`.env` is git-ignored, so also add both variables on Netlify:
+**Site configuration → Environment variables**, then trigger a redeploy.
 
-1. Push this project to a GitHub repo.
-2. In Netlify: **Add new site → Import an existing project → GitHub** → pick
-   the repo.
-3. Build settings (Netlify should auto-detect these from `netlify.toml`, but
-   confirm):
-   - **Build command:** `npm run build`
-   - **Publish directory:** `dist`
-4. Click **Deploy site**. Every future push to the connected branch
-   redeploys automatically.
-
-`netlify.toml` in this repo already sets the build command, publish
-directory, and the SPA redirect rule, so Option B needs no manual
-configuration in the Netlify UI.
-
-### Why the redirect rule matters
-
-This is a single-page app — React Router handles routes like `/products` or
-`/cart` *in the browser*, not as real files on the server. Without a
-redirect rule, visiting `yoursite.com/products` directly (or refreshing the
-page) returns a 404, because Netlify looks for a `products` file that
-doesn't exist. `netlify.toml` and `public/_redirects` both tell Netlify:
-"for any path, just serve `index.html` and let React Router take it from
-there." Both files are already in place — nothing to add.
-
----
-
-## Local development
+## 3. Run locally
 
 ```bash
 npm install
 npm run dev
 ```
 
-Opens at `http://localhost:5173`. Requires Node 18 or newer (built and
-tested here on Node 22).
+Opens at `http://localhost:5173`. Requires Node 18 or newer.
+
+## Deploy to Netlify
+
+`netlify.toml` sets the build command, publish directory and the SPA redirect.
+Push to GitHub and Netlify redeploys automatically.
 
 ## Project structure
 
 - `src/pages/` — one file per route
-- `src/components/` — shared UI: Navbar, Footer, ProductCard, Layout, AuthCard, Icons
-- `src/context/CartContext.jsx` — cart state, persisted to `localStorage`
-- `src/data/` — mock products, categories, and orders (shaped to match the
-  future Django API responses, so swapping in real `fetch()` calls later is
-  a small change, not a rewrite)
+- `src/components/` — Navbar, Footer, ProductCard, Layout, AuthCard, ProtectedRoute, Icons
+- `src/context/` — `AuthContext` (Supabase auth), `CatalogContext` (products and
+  categories), `CartContext` (cart, kept in `localStorage`)
+- `src/lib/` — `supabase.js` (client), `format.js` (KSh formatting, phone validation, constants)
 
 ## Routes
 
-| Route | Page |
-|---|---|
-| `/` | Home |
-| `/products` | All products — supports `?category=`, `?q=`, `?sort=`, `?maxPrice=` |
-| `/product/:id` | Product detail |
-| `/cart` | Cart |
-| `/checkout` | Checkout (simulated — no real payment yet) |
-| `/login` | Login |
-| `/register` | Register |
-| `/profile` | Account dashboard, profile form, saved products |
-| `/account/orders` | My Orders |
-| `/account/orders/:id` | Order detail with status tracker |
-| `*` | 404 |
+| Route | Page | Sign-in needed |
+|---|---|---|
+| `/` | Home | No |
+| `/products` | Products, with `?category=`, `?q=`, `?sort=`, `?maxPrice=` | No |
+| `/product/:id` | Product detail | No |
+| `/cart` | Cart | No |
+| `/login`, `/register` | Auth | No |
+| `/checkout` | Checkout (calls `place_order()` in the database) | Yes |
+| `/profile` | Account dashboard and profile form | Yes |
+| `/account/orders` | My Orders | Yes |
+| `/account/orders/:id` | Order detail with status tracker | Yes |
+
+## How orders work
+
+Checkout calls the `place_order()` database function. It re-reads real prices,
+locks and decrements stock, and saves the order, so totals cannot be tampered with
+from the browser. Users can only read their own orders (Row Level Security).
 
 ## Not built yet
 
-- Admin routes (`/admin/*`) — comes after the Django backend exists
-- Real auth — login/register currently just redirect, nothing is persisted
-- Real payments — checkout simulates placing an order and clears the cart
-- Wishlist persistence (Saved Products is a placeholder for now)
-
-## Known limitation to flag to the student
-
-Product images are placeholder URLs (`picsum.photos`), so the live site
-needs internet access to load them — that's expected and fine for a demo,
-but worth mentioning if browsing offline.
+- Real payments (M-Pesa Daraja STK push, card). Orders are saved with the chosen method.
+- Admin pages (`profiles.is_admin` exists but nothing uses it yet)
+- Saved products (the `wishlist` table exists, the UI doesn't)
+- Product images are placeholder URLs (`picsum.photos`)

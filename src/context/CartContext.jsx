@@ -1,8 +1,8 @@
 import { createContext, useContext, useEffect, useState } from "react";
+import { DELIVERY_FEE } from "../lib/format";
 
 const CartContext = createContext(null);
 const STORAGE_KEY = "soko_cart";
-const DELIVERY_FEE = 300;
 
 export function CartProvider({ children }) {
   const [items, setItems] = useState(() => {
@@ -14,19 +14,22 @@ export function CartProvider({ children }) {
     }
   });
 
-  // Persist to localStorage whenever the cart changes.
-  // NOTE for later: once the API exists, this is the natural place to also
-  // sync the cart to the server for a logged-in user.
   useEffect(() => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(items));
   }, [items]);
 
+  // Never lets the quantity in the cart go above the product's stock.
+  // (The database re-checks price and stock when the order is placed.)
   function addToCart(product, quantity = 1) {
     setItems((prev) => {
       const existing = prev.find((i) => i.id === product.id);
+      const current = existing ? existing.quantity : 0;
+      const allowed = Math.min(quantity, product.stock - current);
+      if (allowed <= 0) return prev;
+
       if (existing) {
         return prev.map((i) =>
-          i.id === product.id ? { ...i, quantity: i.quantity + quantity } : i
+          i.id === product.id ? { ...i, quantity: i.quantity + allowed, stock: product.stock } : i
         );
       }
       return [
@@ -37,7 +40,7 @@ export function CartProvider({ children }) {
           price: product.price,
           image: product.image,
           stock: product.stock,
-          quantity,
+          quantity: allowed,
         },
       ];
     });
@@ -46,7 +49,7 @@ export function CartProvider({ children }) {
   function updateQuantity(id, quantity) {
     if (quantity < 1) return;
     setItems((prev) =>
-      prev.map((i) => (i.id === id ? { ...i, quantity } : i))
+      prev.map((i) => (i.id === id ? { ...i, quantity: Math.min(quantity, i.stock) } : i))
     );
   }
 

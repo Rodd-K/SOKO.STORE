@@ -1,21 +1,22 @@
 import { useState } from "react";
 import { Link, useParams, useNavigate } from "react-router-dom";
-import products from "../data/products";
-import categories from "../data/categories";
 import ProductCard from "../components/ProductCard";
 import { StarIcon } from "../components/Icons";
 import { useCart } from "../context/CartContext";
-
-function formatKsh(amount) {
-  return `KSh ${amount.toLocaleString("en-KE")}`;
-}
+import { useCatalog } from "../context/CatalogContext";
+import { formatKsh } from "../lib/format";
 
 export default function ProductDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { addToCart } = useCart();
+  const { items, addToCart } = useCart();
+  const { products, categories, loading } = useCatalog();
   const [qty, setQty] = useState(1);
   const [added, setAdded] = useState(false);
+
+  if (loading) {
+    return <p className="px-4 py-20 text-center text-sm text-ink/60">Loading…</p>;
+  }
 
   const product = products.find((p) => p.id === Number(id));
 
@@ -32,6 +33,8 @@ export default function ProductDetail() {
   }
 
   const outOfStock = product.stock === 0;
+  const inCart = items.find((i) => i.id === product.id)?.quantity ?? 0;
+  const available = product.stock - inCart; // how many more can still be added
   const hasDiscount = product.originalPrice && product.originalPrice > product.price;
   const categoryName = categories.find((c) => c.slug === product.category)?.name;
   const related = products
@@ -39,7 +42,8 @@ export default function ProductDetail() {
     .slice(0, 4);
 
   function handleAddToCart() {
-    addToCart(product, qty);
+    addToCart(product, Math.min(qty, available));
+    setQty(1);
     setAdded(true);
   }
 
@@ -91,11 +95,11 @@ export default function ProductDetail() {
             {outOfStock ? "Out of stock" : `${product.stock} available`}
           </p>
 
-          <p className="mt-5 max-w-prose text-sm leading-relaxed text-ink/70">
-            Placeholder description — swap for real product copy once the backend is
-            connected. Describe material, size/fit, what's in the box, and anything a
-            buyer needs before purchasing.
-          </p>
+          {product.description && (
+            <p className="mt-5 max-w-prose text-sm leading-relaxed text-ink/70">
+              {product.description}
+            </p>
+          )}
 
           {!outOfStock && (
             <div className="mt-6 flex items-center gap-4">
@@ -109,7 +113,7 @@ export default function ProductDetail() {
                 </button>
                 <span className="w-8 text-center text-sm">{qty}</span>
                 <button
-                  onClick={() => setQty((q) => Math.min(product.stock, q + 1))}
+                  onClick={() => setQty((q) => Math.min(Math.max(available, 1), q + 1))}
                   className="px-3 py-2 text-navy-800"
                   aria-label="Increase quantity"
                 >
@@ -118,9 +122,10 @@ export default function ProductDetail() {
               </div>
               <button
                 onClick={handleAddToCart}
-                className="flex-1 rounded-md bg-navy-800 py-3 text-sm font-semibold text-white hover:bg-navy-700"
+                disabled={available <= 0}
+                className="flex-1 rounded-md bg-navy-800 py-3 text-sm font-semibold text-white hover:bg-navy-700 disabled:cursor-not-allowed disabled:bg-navy-100 disabled:text-ink/40"
               >
-                Add to cart
+                {available <= 0 ? "Max quantity in cart" : "Add to cart"}
               </button>
             </div>
           )}

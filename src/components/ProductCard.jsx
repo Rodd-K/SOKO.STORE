@@ -1,14 +1,13 @@
 import { Link } from "react-router-dom";
 import { StarIcon } from "./Icons";
 import { useCart } from "../context/CartContext";
-
-function formatKsh(amount) {
-  return `KSh ${amount.toLocaleString("en-KE")}`;
-}
+import { formatKsh } from "../lib/format";
 
 export default function ProductCard({ product }) {
-  const { addToCart } = useCart();
+  const { items, addToCart } = useCart();
   const outOfStock = product.stock === 0;
+  const inCart = items.find((i) => i.id === product.id)?.quantity ?? 0;
+  const maxedOut = !outOfStock && inCart >= product.stock;
   const hasDiscount = product.originalPrice && product.originalPrice > product.price;
 
   return (
@@ -58,11 +57,11 @@ export default function ProductCard({ product }) {
 
       <button
         type="button"
-        disabled={outOfStock}
+        disabled={outOfStock || maxedOut}
         onClick={() => addToCart(product, 1)}
         className="mt-3 rounded-md bg-navy-800 py-2 text-sm font-semibold text-white transition hover:bg-navy-700 disabled:cursor-not-allowed disabled:bg-navy-100 disabled:text-ink/40"
       >
-        {outOfStock ? "Notify me" : "Add to cart"}
+        {outOfStock ? "Out of stock" : maxedOut ? "Max in cart" : "Add to cart"}
       </button>
     </div>
   );

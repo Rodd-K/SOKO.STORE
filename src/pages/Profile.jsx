@@ -1,15 +1,8 @@
-import { useState } from "react";
-import { Link } from "react-router-dom";
-
-// Mock signed-in user. Once auth exists, this will come from the
-// logged-in user's data instead of local state.
-const MOCK_USER = {
-  fullName: "Amina Wanjiru",
-  email: "amina.wanjiru@example.com",
-  phone: "0712 345 678",
-  county: "Nairobi",
-  town: "Westlands",
-};
+import { useEffect, useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
+import { useAuth } from "../context/AuthContext";
+import { supabase } from "../lib/supabase";
+import { isValidKenyanPhone } from "../lib/format";
 
 const NAV_ITEMS = [
   { key: "dashboard", label: "Dashboard" },
@@ -18,19 +11,68 @@ const NAV_ITEMS = [
 ];
 
 export default function Profile() {
+  const { user, signOut } = useAuth();
+  const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState("profile");
-  const [form, setForm] = useState(MOCK_USER);
+  const [form, setForm] = useState({ fullName: "", phone: "", county: "", town: "" });
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    supabase
+      .from("profiles")
+      .select("*")
+      .eq("id", user.id)
+      .maybeSingle()
+      .then(({ data, error: loadError }) => {
+        if (loadError) setError(loadError.message);
+        if (data) {
+          setForm({
+            fullName: data.full_name || "",
+            phone: data.phone || "",
+            county: data.county || "",
+            town: data.town || "",
+          });
+        }
+        setLoading(false);
+      });
+  }, [user.id]);
 
   function handleChange(e) {
     setForm((prev) => ({ ...prev, [e.target.name]: e.target.value }));
     setSaved(false);
   }
 
-  function handleSubmit(e) {
+  async function handleSubmit(e) {
     e.preventDefault();
-    // No backend yet — this just confirms the form works.
-    setSaved(true);
+    if (form.phone && !isValidKenyanPhone(form.phone)) {
+      setError("Enter a valid Kenyan phone number, e.g. 0712 345 678.");
+      return;
+    }
+    setError("");
+    setSaving(true);
+    const { error: saveError } = await supabase
+      .from("profiles")
+      .update({
+        full_name: form.fullName,
+        phone: form.phone,
+        county: form.county,
+        town: form.town,
+      })
+      .eq("id", user.id);
+    setSaving(false);
+    if (saveError) {
+      setError(saveError.message);
+    } else {
+      setSaved(true);
+    }
+  }
+
+  async function handleLogout() {
+    await signOut();
+    navigate("/");
   }
 
   return (
@@ -60,7 +102,10 @@ export default function Profile() {
             >
               My Orders
             </Link>
-            <button className="shrink-0 rounded-md px-3 py-2 text-left text-sm font-medium text-sale hover:bg-surface">
+            <button
+              onClick={handleLogout}
+              className="shrink-0 rounded-md px-3 py-2 text-left text-sm font-medium text-sale hover:bg-surface"
+            >
               Logout
             </button>
           </nav>
@@ -74,32 +119,36 @@ export default function Profile() {
               <p className="mb-6 text-sm text-ink/60">
                 This information is used for delivery and order updates.
               </p>
-              <form onSubmit={handleSubmit} className="grid gap-4 sm:grid-cols-2">
-                <Field label="Full name" name="fullName" value={form.fullName} onChange={handleChange} />
-                <Field label="Email" name="email" type="email" value={form.email} onChange={handleChange} />
-                <Field label="Phone number" name="phone" value={form.phone} onChange={handleChange} />
-                <Field label="County" name="county" value={form.county} onChange={handleChange} />
-                <Field label="Town" name="town" value={form.town} onChange={handleChange} />
+              {loading ? (
+                <p className="text-sm text-ink/60">Loading…</p>
+              ) : (
+                <form onSubmit={handleSubmit} className="grid gap-4 sm:grid-cols-2">
+                  <Field label="Full name" name="fullName" value={form.fullName} onChange={handleChange} />
+                  <Field label="Email" name="email" type="email" value={user.email} disabled />
+                  <Field label="Phone number" name="phone" type="tel" value={form.phone} onChange={handleChange} />
+                  <Field label="County" name="county" value={form.county} onChange={handleChange} />
+                  <Field label="Town" name="town" value={form.town} onChange={handleChange} />
 
-                <div className="sm:col-span-2">
-                  <button
-                    type="submit"
-                    className="mt-2 rounded-md bg-navy-800 px-6 py-2.5 text-sm font-semibold text-white hover:bg-navy-700"
-                  >
-                    Save changes
-                  </button>
-                  {saved && (
-                    <span className="ml-3 text-sm font-medium text-stock">Saved.</span>
-                  )}
-                </div>
-              </form>
+                  <div className="sm:col-span-2">
+                    {error && <p className="mb-2 text-sm text-sale">{error}</p>}
+                    <button
+                      type="submit"
+                      disabled={saving}
+                      className="mt-2 rounded-md bg-navy-800 px-6 py-2.5 text-sm font-semibold text-white hover:bg-navy-700 disabled:opacity-60"
+                    >
+                      {saving ? "Saving…" : "Save changes"}
+                    </button>
+                    {saved && <span className="ml-3 text-sm font-medium text-stock">Saved.</span>}
+                  </div>
+                </form>
+              )}
             </>
           )}
 
           {activeTab === "dashboard" && (
             <EmptyState
-              title="Welcome back"
-              body="Your recent orders and account activity will show up here."
+              title={form.fullName ? `Welcome back, ${form.fullName.split(" ")[0]}` : "Welcome back"}
+              body="Track your purchases under My Orders."
             />
           )}
           {activeTab === "saved" && (
@@ -114,7 +163,7 @@ export default function Profile() {
   );
 }
 
-function Field({ label, name, value, onChange, type = "text" }) {
+function Field({ label, name, value, onChange, type = "text", disabled }) {
   return (
     <label className="block text-sm">
       <span className="mb-1.5 block font-medium text-navy-900">{label}</span>
@@ -123,7 +172,8 @@ function Field({ label, name, value, onChange, type = "text" }) {
         name={name}
         value={value}
         onChange={onChange}
-        className="w-full rounded-md border border-navy-100 px-3 py-2 outline-none focus:border-navy-800"
+        disabled={disabled}
+        className="w-full rounded-md border border-navy-100 px-3 py-2 outline-none focus:border-navy-800 disabled:bg-surface disabled:text-ink/50"
       />
     </label>
   );

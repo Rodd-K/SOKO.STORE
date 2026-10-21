@@ -1,20 +1,17 @@
-import { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import { useCart } from "../context/CartContext";
+import { useAuth } from "../context/AuthContext";
+import { useCatalog } from "../context/CatalogContext";
+import { supabase } from "../lib/supabase";
+import { formatKsh, isValidKenyanPhone, PAYMENT_LABELS } from "../lib/format";
 
-function formatKsh(amount) {
-  return `KSh ${amount.toLocaleString("en-KE")}`;
-}
-
-const PAYMENT_METHODS = [
-  { value: "cod", label: "Cash on Delivery" },
-  { value: "mpesa", label: "M-Pesa" },
-  { value: "card", label: "Card" },
-];
+const PAYMENT_METHODS = Object.entries(PAYMENT_LABELS).map(([value, label]) => ({ value, label }));
 
 export default function Checkout() {
   const { items, subtotal, delivery, total, clearCart } = useCart();
-  const navigate = useNavigate();
+  const { user } = useAuth();
+  const { refresh } = useCatalog();
   const [form, setForm] = useState({
     fullName: "",
     phone: "",
@@ -23,44 +20,80 @@ export default function Checkout() {
     address: "",
     payment: "cod",
   });
-  const [placed, setPlaced] = useState(false);
-  const [orderNumber] = useState(() => 1000 + Math.floor(Math.random() * 9000));
+  const [orderNumber, setOrderNumber] = useState(null);
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState("");
+
+  // Prefill delivery details from the saved profile (only fills empty fields).
+  useEffect(() => {
+    if (!user) return;
+    supabase
+      .from("profiles")
+      .select("*")
+      .eq("id", user.id)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (!data) return;
+        setForm((prev) => ({
+          ...prev,
+          fullName: prev.fullName || data.full_name || "",
+          phone: prev.phone || data.phone || "",
+          county: prev.county || data.county || "",
+          town: prev.town || data.town || "",
+        }));
+      });
+  }, [user]);
 
   function handleChange(e) {
     setForm((prev) => ({ ...prev, [e.target.name]: e.target.value }));
   }
 
-  function handleSubmit(e) {
+  async function handleSubmit(e) {
     e.preventDefault();
-    // No payment integration yet — this simulates placing the order.
-    // Real version will POST /api/orders/ with cart items + this form.
+    setError("");
+
+    if (!isValidKenyanPhone(form.phone)) {
+      setError("Enter a valid Kenyan phone number, e.g. 0712 345 678.");
+      return;
+    }
+
+    setSubmitting(true);
+    // The database re-checks prices and stock, so the browser total is never trusted.
+    const { data, error: rpcError } = await supabase.rpc("place_order", {
+      p_items: items.map((i) => ({ product_id: i.id, quantity: i.quantity })),
+      p_delivery: {
+        full_name: form.fullName,
+        phone: form.phone,
+        county: form.county,
+        town: form.town,
+        address: form.address,
+      },
+      p_payment: form.payment,
+    });
+    setSubmitting(false);
+
+    if (rpcError) {
+      setError(rpcError.message);
+      refresh(); // stock may have changed, so reload the catalog
+      return;
+    }
+
+    setOrderNumber(data);
     clearCart();
-    setPlaced(true);
+    refresh();
   }
 
-  if (items.length === 0 && !placed) {
-    return (
-      <div className="mx-auto max-w-content px-4 py-20 text-center">
-        <h1 className="font-display text-2xl font-bold text-navy-900">Nothing to check out</h1>
-        <p className="mt-2 text-ink/60">Add a product to your cart first.</p>
-        <Link to="/products" className="mt-6 inline-block text-sm font-semibold text-marigold-600">
-          Browse products
-        </Link>
-      </div>
-    );
-  }
-
-  if (placed) {
+  if (orderNumber) {
     return (
       <div className="mx-auto max-w-content px-4 py-20 text-center">
         <h1 className="font-display text-2xl font-bold text-navy-900">Order placed</h1>
         <p className="mt-2 text-ink/60">
           Order <span className="font-semibold text-navy-900">#{orderNumber}</span> is confirmed.
-          Payment: {PAYMENT_METHODS.find((p) => p.value === form.payment)?.label}.
+          Payment: {PAYMENT_LABELS[form.payment]}.
         </p>
         <div className="mt-6 flex justify-center gap-3">
           <Link
-            to="/profile"
+            to="/account/orders"
             className="rounded-md bg-navy-800 px-5 py-2.5 text-sm font-semibold text-white hover:bg-navy-700"
           >
             View my orders
@@ -76,6 +109,18 @@ export default function Checkout() {
     );
   }
 
+  if (items.length === 0) {
+    return (
+      <div className="mx-auto max-w-content px-4 py-20 text-center">
+        <h1 className="font-display text-2xl font-bold text-navy-900">Nothing to check out</h1>
+        <p className="mt-2 text-ink/60">Add a product to your cart first.</p>
+        <Link to="/products" className="mt-6 inline-block text-sm font-semibold text-marigold-600">
+          Browse products
+        </Link>
+      </div>
+    );
+  }
+
   return (
     <div className="mx-auto max-w-content px-4 py-8">
       <h1 className="font-display text-2xl font-bold text-navy-900">Checkout</h1>
@@ -87,7 +132,7 @@ export default function Checkout() {
             <h2 className="mb-4 font-bold text-navy-900">Delivery information</h2>
             <div className="grid gap-4 sm:grid-cols-2">
               <Field label="Full name" name="fullName" value={form.fullName} onChange={handleChange} required />
-              <Field label="Phone number" name="phone" value={form.phone} onChange={handleChange} required />
+              <Field label="Phone number" name="phone" type="tel" value={form.phone} onChange={handleChange} required />
               <Field label="County" name="county" value={form.county} onChange={handleChange} required />
               <Field label="Town" name="town" value={form.town} onChange={handleChange} required />
               <div className="sm:col-span-2">
@@ -122,6 +167,12 @@ export default function Checkout() {
                 </label>
               ))}
             </div>
+            {form.payment !== "cod" && (
+              <p className="mt-3 text-xs text-ink/60">
+                Online payments aren't live yet. Your order will be saved and we'll contact you to
+                complete payment.
+              </p>
+            )}
           </section>
         </div>
 
@@ -152,11 +203,15 @@ export default function Checkout() {
             <span>Total</span>
             <span>{formatKsh(total)}</span>
           </div>
+
+          {error && <p className="mt-4 text-sm text-sale">{error}</p>}
+
           <button
             type="submit"
-            className="mt-5 w-full rounded-md bg-marigold-500 py-3 text-sm font-semibold text-navy-900 hover:bg-marigold-400"
+            disabled={submitting}
+            className="mt-5 w-full rounded-md bg-marigold-500 py-3 text-sm font-semibold text-navy-900 hover:bg-marigold-400 disabled:opacity-60"
           >
-            Place order
+            {submitting ? "Placing order…" : "Place order"}
           </button>
         </div>
       </form>
@@ -164,12 +219,12 @@ export default function Checkout() {
   );
 }
 
-function Field({ label, name, value, onChange, required }) {
+function Field({ label, name, value, onChange, required, type = "text" }) {
   return (
     <label className="block text-sm">
       <span className="mb-1.5 block font-medium text-navy-900">{label}</span>
       <input
-        type="text"
+        type={type}
         name={name}
         value={value}
         onChange={onChange}

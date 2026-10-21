@@ -1,25 +1,38 @@
 import { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import AuthCard from "../components/AuthCard";
+import { useAuth } from "../context/AuthContext";
 
 export default function Login() {
   const navigate = useNavigate();
+  const location = useLocation();
+  const { signIn } = useAuth();
   const [form, setForm] = useState({ email: "", password: "" });
   const [error, setError] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+
+  // If the user was sent here from a protected page, go back there after login.
+  const redirectTo = location.state?.from?.pathname || "/profile";
 
   function handleChange(e) {
     setForm((prev) => ({ ...prev, [e.target.name]: e.target.value }));
   }
 
-  function handleSubmit(e) {
+  async function handleSubmit(e) {
     e.preventDefault();
     if (!form.email || !form.password) {
       setError("Enter both your email and password.");
       return;
     }
-    // No backend yet — this is where POST /api/auth/login/ will go.
     setError("");
-    navigate("/profile");
+    setSubmitting(true);
+    const { error: authError } = await signIn(form.email, form.password);
+    setSubmitting(false);
+    if (authError) {
+      setError(authError.message);
+      return;
+    }
+    navigate(redirectTo, { replace: true });
   }
 
   return (
@@ -50,9 +63,10 @@ export default function Login() {
 
         <button
           type="submit"
-          className="w-full rounded-md bg-navy-800 py-2.5 text-sm font-semibold text-white hover:bg-navy-700"
+          disabled={submitting}
+          className="w-full rounded-md bg-navy-800 py-2.5 text-sm font-semibold text-white hover:bg-navy-700 disabled:opacity-60"
         >
-          Log in
+          {submitting ? "Logging in…" : "Log in"}
         </button>
       </form>
 
